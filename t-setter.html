@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>PubSub</title>
+</head>
+<body>
+<h1>PubSub</h1>
+
+<fieldset id="centigrade"><legend><h2>Centigrade</h2></legend>
+<label>Temperature: <input type="number" class="temp" value="0" step="0.1"></label>
+</fieldset>
+
+<fieldset id="farenheight"><legend><h2>Farenheight</h2></legend>
+<label>Temperature: <input type="number" class="temp" value="0" step="0.1"></label>
+</fieldset>
+
+<script type="module">
+import {Observer} from "./observer-setter.js";
+
+const f = document.querySelector("#farenheight .temp");
+const c = document.querySelector("#centigrade .temp");
+const temperature = {f: 0, c: 0};
+const temperatureObserver = Observer (temperature, "temperature");
+
+f.addEventListener("change", e => temperatureObserver.f = Number(e.target.value));
+c.addEventListener("change", e => temperatureObserver.c = Number(e.target.value));
+
+document.addEventListener("temperature:f", e => c.value = f2c(e.detail.value));
+document.addEventListener("temperature:c", e => f.value = c2f(e.detail.value));
+
+function f2c (t) {return (t * 5/9) - 32;}
+function c2f (t) {return (t * 9/5) + 32;}
+
+</script>
+
+</body>
+</html>
