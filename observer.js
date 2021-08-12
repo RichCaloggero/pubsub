@@ -1,21 +1,22 @@
 const observers = new Map();
 
 /// test
-const myObject = {
+/*const myObject = {
 a:1,
 get b () {return this._b;},
 set b (v) {
 this._b = v;
-console.log(`myObject setter: set b to ${v}`);
+console.debug(`myObject setter: set b to ${v}`);
 } // set b
 }; // myObject
  publish(myObject, "b");
 subscribe(myObject, "b", (object, p, v) =>
-console.log(`${p}: ${v}`)
+console.debug(`${p}: ${v}`)
 ); // subscribe
 myObject.b = 77;
+*/
 
-function publish (object, property) {
+export function publish (object, property) {
 console.debug ("publish: ", object, property);
 const properties = observers.has(object)? observers.get(object)
 : (observers.set(object, new Map()), observers.get(object));
@@ -66,7 +67,7 @@ function _get () {return subscribers.get(property).lastValue;}
 } // publish
 
 
-function subscribe (object, property, callback) {
+export function subscribe (object, property, callback) {
 if (observers.has(object)) {
 const properties = observers.get(object);
 if (properties.has(property)) {
