@@ -7,13 +7,15 @@
 <body>
 <h1>PubSub</h1>
 
-<fieldset id="centigrade"><legend><h2>Centigrade</h2></legend>
+<div>
+<fieldset aria-live="polite" aria-atomic="true" id="centigrade"><legend><h2>Centigrade</h2></legend>
 <label>Temperature: <input type="number" class="temp" value="0" step="0.1"></label>
 </fieldset>
 
-<fieldset id="farenheight"><legend><h2>Farenheight</h2></legend>
+<fieldset aria-live="polite" aria-atomic="true" id="farenheight"><legend><h2>Farenheight</h2></legend>
 <label>Temperature: <input type="number" class="temp" value="0" step="0.1"></label>
 </fieldset>
+</div>
 
 <script type="module">
 import {publish, subscribe} from "./observer.js";

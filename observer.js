@@ -2,19 +2,31 @@ const observers = new Map();
 
 /// test
 /*const myObject = {
-a:1,
-get b () {return this._b;},
+a: 1,
+_b: 0,
+get b () {return 2 * this._b;},
 set b (v) {
 this._b = v;
-console.debug(`myObject setter: set b to ${v}`);
+console.log(`myObject setter: set b to ${v}`);
 } // set b
 }; // myObject
- publish(myObject, "b");
-subscribe(myObject, "b", (object, p, v) =>
-console.debug(`${p}: ${v}`)
-); // subscribe
-myObject.b = 77;
+ 
+publish(myObject, "b");
+publish(myObject, "a");
+
+subscribe(myObject, "b", notification);
+subscribe(myObject, "a", notification);
+
+myObject.a = 2;
+myObject.b = 13;
+
+console.log(`myObject is now: ${myObject.a}, ${myObject._b}, ${myObject.b}`);
+
+function notification (object, property, value) {
+console.log(`notification: changed ${property} to ${value} in ${object}`);
+} // notification
 */
+
 
 export function publish (object, property) {
 console.debug ("publish: ", object, property);
@@ -38,14 +50,13 @@ const setter = object.__lookupSetter__(property);
 
 Object.defineProperty(object, property, {
 set: function (value) {
-if (setter instanceof Function) setter(value);
+if (setter instanceof Function) setter.call(object, value);
 _set(value);
 }, // set
 
 get: function () {
 const result = _get();
-if (getter instanceof Function) getter();
-return result;
+return getter instanceof Function? getter.call(object) : result;
 }, // get
 }); // defineProperty
 } // if
