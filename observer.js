@@ -1,7 +1,8 @@
 const observers = new Map();
+const proxied = new Map();
 
 /// test
-/*const myObject = {
+/*let myObject = {
 a: 1,
 _b: 0,
 get b () {return 2 * this._b;},
@@ -10,85 +11,93 @@ this._b = v;
 console.log(`myObject setter: set b to ${v}`);
 } // set b
 }; // myObject
- 
-publish(myObject, "b");
-publish(myObject, "a");
-
-subscribe(myObject, "b", notification);
-subscribe(myObject, "a", notification);
-
-myObject.a = 2;
-myObject.b = 13;
-
-console.log(`myObject is now: ${myObject.a}, ${myObject._b}, ${myObject.b}`);
-
-function notification (object, property, value) {
-console.log(`notification: changed ${property} to ${value} in ${object}`);
-} // notification
+ myObject = publish(myObject);
+subscribe(myObject, "b", (object, p, v) =>
+console.log(`notification: changed ${p} to ${v} in ${object}`)
+); // subscribe
+myObject.b = 77;
+//console.log(`myObject:  ${myObject.a}, ${myObject._b}, ${myObject.b}`);
 */
 
+export function publish (object) {
+console.debug("publishing ", object);
+const properties = new Map();
+const newProperty = {property: "", cachedValue: undefined, callbacks: []};
 
-export function publish (object, property) {
-console.debug ("publish: ", object, property);
-const properties = observers.has(object)? observers.get(object)
-: (observers.set(object, new Map()), observers.get(object));
-console.debug("publish: properties: ", properties);
-
-const subscribers = properties.has(property)? properties.get(property)
-: (properties.set(property, new Map()), properties.get(property));
-console.debug("publish: subscribers: ", subscribers);
-
-if (!subscribers.has(property)) {
-subscribers.set(property, {lastValue: null, callbacks: []});
-console.debug("publishing: ", subscribers);
-
+// special case HTMLElement because they cannot be proxied
 if (object instanceof HTMLElement) {
-object.addEventListener("change", e => _set(e.target.value));
+observers.set(object, properties);
+proxied.set(object, null);
+if (!properties.has("value")) properties.set("value", {...newProperty, property: "value"});
+const subscriptions = properties.get("value");
+object.addEventListener("change", e => {
+const value = e.target.value;
+if (subscriptions.cachedValue !== value) {
+subscriptions.cachedValue = value;
+notify(subscriptions.callbacks, object, "value", value);
+} // if
+}); // change handler
+return object;
+} // if
+
+Reflect.ownKeys(object).forEach(property => properties.set(property, {...newProperty, property}));
+Reflect.ownKeys(object).forEach(property => properties.set(property, {...newProperty, property}));
+console.debug("- ", properties.size, " properties being published");
+
+const proxy = createProxy(object, properties);
+observers.set(proxy, properties);
+proxied.set(object, proxy);
+console.debug("- proxy created; returning ...");
+return proxy;
+
+function createProxy (object, properties) {
+//console.debug("createProxy: properties: ", properties);
+return new Proxy(object, {
+defineProperty: function (target, property, descriptor, receiver) {
+if (Reflect.defineProperty(...arguments)) {
+properties.set(property, {...newProperty, property});
+return true;
 } else {
-const getter = object.__lookupGetter__(property);
-const setter = object.__lookupSetter__(property);
-
-Object.defineProperty(object, property, {
-set: function (value) {
-if (setter instanceof Function) setter.call(object, value);
-_set(value);
-}, // set
-
-get: function () {
-const result = _get();
-return getter instanceof Function? getter.call(object) : result;
-}, // get
-}); // defineProperty
+return false;
 } // if
+}, // defineProperty
+
+set: function (target, property, value, receiver) {
+console.debug("in set trap", property, value);
+const subscriptions = properties.has(property)? properties.get(property)
+: (properties.set(property, {...newProperty, property}), console.debug("- added property ", property), properties.get(property));
+
+if (subscriptions.callbacks.length === 0) {
+target[property] = value;
+console.debug("- no subscriptions, so just update target");
+return true;
 } // if
 
-return property;
+if (subscriptions.cachedValue === value) return true;
+subscriptions.cachedValue = target[property] = value;
+notify(subscriptions.callbacks, target, property, value);
+console.debug("- updated target...");
 
-function _set (value) {
-console.debug("setting ", property, " of ", object, " to ", value);
-const subscriptions = subscribers.get(property);
-if (value !== subscriptions.lastValue) {
-subscriptions.lastValue = value;
-notify(subscriptions.callbacks, object, property, value);
-} // if
-} // _set
-
-function _get () {return subscribers.get(property).lastValue;}
-
+return true;
+} // set
+}); // Proxy
+} // createProxy
 } // publish
 
-
 export function subscribe (object, property, callback) {
+console.debug("subscribe: ", [...arguments]);
 if (observers.has(object)) {
 const properties = observers.get(object);
+console.debug("- ", properties.size, " properties found");
 if (properties.has(property)) {
-const subscribers = properties.get(property);
-const subscriptions = subscribers.get(property);
+const subscriptions = properties.get(property);
+if (subscriptions.property !== property) throw new Error(`expected property ${property}, got ${subscriptions.property} instead.`);
 
-Object.assign(
-subscriptions,
-{callbacks: [...subscriptions.callbacks, callback]}
-); // assign
+const callbacks = callback? [...subscriptions.callbacks, callback] : [];
+if (callbacks.length === 0) console.log("removing subscriptions for property ", property);
+subscriptions.callbacks = callbacks;
+properties.set(property, subscriptions);
+console.debug("- subscriptions: ", properties.get(property));
 } // if
 } // if
 } // subscribe
@@ -96,3 +105,12 @@ subscriptions,
 function notify (callbacks, object, property, value) {
 callbacks.forEach(f => f(object, property, value));
 } // notify
+
+export function published (object) {
+return object instanceof HTMLElement? observers.has(object) ?? object
+: (observers.has(object)? object : proxied.get(object));
+} // isPublished
+
+export function subscriptions (object, property) {
+return published(object)? observers.get(published(object)).get(property) : null;
+} // subscriptions
